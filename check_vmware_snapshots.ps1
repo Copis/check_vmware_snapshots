@@ -2,14 +2,15 @@
 .DESCRIPTION
 This script looks for a existing snapshots for all VM that are older than X days
 .EXAMPLE
-.\check_snapshots.ps1 -server vcenter -u username -p password
+.\check_snapshots.ps1 -server vcenter -user username -pwd password -exclude_vm vm1,vm2,...,vmX
 #>
 
 # Parameters
 Param(
   [string]$server,
   [string]$user,
-  [string]$pwd
+  [string]$pwd,
+  [Array]$exclude_vm
 )
 
 # States
@@ -46,7 +47,7 @@ $oldest = 0
 foreach ($DataCenter in $DataCenters) {
     $VMs = Get-VM -Location $DataCenter -Server $VCenter
     foreach ($vm in $VMs) {
-        if ($vm.Name -like "*replica*") { continue }
+        if ($vm.Name -like "*replica*") -or $vm.Name -in $excluded_vm) { continue }
         $snaps = @()
 
         $snaps += Get-Snapshot -VM $vm -Server $VCenter | Sort-Object -Property Created -Descending
