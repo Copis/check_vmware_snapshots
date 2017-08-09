@@ -47,7 +47,7 @@ $oldest = 0
 foreach ($DataCenter in $DataCenters) {
     $VMs = Get-VM -Location $DataCenter -Server $VCenter
     foreach ($vm in $VMs) {
-        if ($vm.Name -like "*replica*") -or $vm.Name -in $excluded_vm) { continue }
+        if ($vm.Name -like "*replica*" -or $vm.Name -in $exclude_vm) { continue }
         $snaps = @()
 
         $snaps += Get-Snapshot -VM $vm -Server $VCenter | Sort-Object -Property Created -Descending
