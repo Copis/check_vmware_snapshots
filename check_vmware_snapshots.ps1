@@ -2,7 +2,7 @@
 .DESCRIPTION
 This script looks for a existing snapshots for all VM that are older than X days
 .EXAMPLE
-.\check_snapshots.ps1 -server vcenter -user username -pwd password -exclude_vm vm1,vm2,...,vmX
+.\check_snapshots.ps1 -server vcenter -user username -pwd password -exclude_vm vm1,vm2,...,vmX -days_warning days (default 3) -days_critical days (default 7)
 #>
 
 # Parameters
@@ -10,7 +10,9 @@ Param(
   [string]$server,
   [string]$user,
   [string]$pwd,
-  [Array]$exclude_vm
+  [Array]$exclude_vm,
+  [int]$days_warning = 3,
+  [int]$days_critical = 7
 )
 
 # States
@@ -38,7 +40,7 @@ if ($VCenter -eq $null) {
 # Get all existing Datacenters into vCenter. // Future check only datacenter that fit a pattern
 $DataCenters = Get-Datacenter -Server $VCenter | Sort-Object
 
-# Looking for the snapshots aged 3 days or over
+# Looking for the snapshots aged $days_warning days or over
 $now = Get-Date
 # Variables to store the information to be reported
 $snapsToDelete = ""
@@ -53,7 +55,7 @@ foreach ($DataCenter in $DataCenters) {
         $snaps += Get-Snapshot -VM $vm -Server $VCenter | Sort-Object -Property Created -Descending
         foreach ($snap in $snaps) {
             $Days = [int]($now-$snap.Created).TotalDays
-            if($Days -lt 3) {
+            if($Days -lt $days_warning) {
                 continue
             }else {
                 $snapsToDelete += $vm.Name + ", "# (" + -$snap.Name +"), "
@@ -66,13 +68,13 @@ foreach ($DataCenter in $DataCenters) {
 # Closing Virtual Center Connection
 Disconnect-VIServer -Server $vCenter -Force -Confirm:$false
 
-if ($oldest -lt 3) {
-    Write-Host "Ok - No VM snasphots older than 3 day"
+if ($oldest -lt $days_warning) {
+    Write-Host "Ok - No VM snasphots older than $days_warning day"
     exit $OK
-}elseif(($oldest -gt 3) -and ($oldest -lt 7)){
-    Write-Host "WARNING - $snapsToDelete ar older than 3 day"
+}elseif(($oldest -ge $days_warning) -and ($oldest -lt $days_critical)){
+    Write-Host "WARNING - $snapsToDelete ar older than $days_warning day"
     exit $WARNING
 }else {
-    Write-Host "CRITICAL - $snapsToDelete ar older than 7 day"
+    Write-Host "CRITICAL - $snapsToDelete ar older than $days_critical day"
     exit $CRITICAL
 }
