@@ -1,6 +1,6 @@
 ﻿<#
 .DESCRIPTION
-This script looks for a existing snapshots for all VM that are older than X days
+This script looks for a existing snapshots or consolidation problems for all VM that are older than X days
 .EXAMPLE
 .\check_snapshots.ps1 -server vcenter -user username -pwd password -exclude_vm vm1,vm2,...,vmX -days_warning days (default 3) -days_critical days (default 7)
 #>
@@ -62,19 +62,34 @@ foreach ($DataCenter in $DataCenters) {
                 if($oldest -lt $Days) { $oldest = $Days }
             }
         }
+	# Looking for consolidation 
+	if ($vm.ExtensionData.Runtime.ConsolidationNeeded) {
+            $consolidationNeeded += $vm.Name +", "
+        }
     }
 }
 
 # Closing Virtual Center Connection
 Disconnect-VIServer -Server $vCenter -Force -Confirm:$false
 
-if ($oldest -lt $days_warning) {
-    Write-Host "Ok - No VM snasphots older than $days_warning day"
+# Print results
+if ($oldest -lt $days_warning -and $consolidationNeeded -eq $null) {
+    Write-Host "Ok - No VM snasphots older than $days_warning days"
     exit $OK
-}elseif(($oldest -ge $days_warning) -and ($oldest -lt $days_critical)){
-    Write-Host "WARNING - $snapsToDelete ar older than $days_warning day"
+}elseif(($oldest -ge $days_warning) -and ($oldest -lt $days_critical) -and $consolidationNeeded -eq $null) {
+    Write-Host "WARNING - $snapsToDelete ar older than $days_warning days"
     exit $WARNING
 }else {
-    Write-Host "CRITICAL - $snapsToDelete ar older than $days_critical day"
-    exit $CRITICAL
+    if($oldest -ge $days_critical -and $consolidationNeeded){
+        Write-Host "CRITICAL - $snapsToDelete snapshots ar older than $days_critical days, $consolidationNeeded needs consolidation."
+        exit $CRITICAL
+    }
+    elseif($consolidationNeeded){
+        Write-Host "CRITICAL - $consolidationNeeded needs consolidation."
+        exit $CRITICAL
+    }
+    else{
+        Write-Host "CRITICAL - $snapsToDelete ar older than $days_critical days"
+        exit $CRITICAL
+    }
 }
